@@ -1,4 +1,4 @@
-# Notes — Act1 take-home1
+# Notes — Act1 take-home
 
 ## Schema / migration decisions
 
