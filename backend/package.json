@@ -1,0 +1,29 @@
+{
+  "name": "candidate-test-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "migrate": "node db/migrate.js",
+    "seed": "node db/seed.js",
+    "db:setup": "npm run migrate && npm run seed",
+    "lint": "eslint .",
+    "test": "node --test test/**/*.test.js",
+    "build": "node --check server.js && node --check routes/items.js && node --check data/items.js && node --check db/pool.js && node --check services/currency.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "eslint": "^9.16.0",
+    "globals": "^15.13.0",
+    "supertest": "^7.0.0"
+  }
+}

@@ -1,0 +1,40 @@
+# Single-container image: Postgres + migrations + backend API + built frontend.
+# Backend serves the built frontend on the same port, so only PORT (default 4000) is exposed.
+FROM postgres:16-alpine
+
+RUN apk add --no-cache nodejs npm bash
+
+WORKDIR /app
+
+# Install backend deps (production only for smaller image)
+COPY backend/package.json backend/package-lock.json ./backend/
+RUN cd backend && npm ci --omit=dev --no-audit --no-fund
+
+# Install frontend deps (dev deps needed to build)
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN cd frontend && npm ci --no-audit --no-fund
+
+# Copy sources
+COPY backend/ ./backend/
+COPY frontend/ ./frontend/
+
+# Build the frontend static bundle
+RUN cd frontend && npm run build && npm prune --omit=dev
+
+ENV POSTGRES_USER=postgres \
+    POSTGRES_PASSWORD=postgres \
+    POSTGRES_DB=act1 \
+    DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/act1 \
+    PGSSL=false \
+    EXTERNAL_API_KEY=dev-key \
+    PORT=4000 \
+    FRONTEND_DIST=/app/frontend/dist \
+    PGDATA=/var/lib/postgresql/data
+
+COPY docker-entrypoint-all.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 4000
+VOLUME ["/var/lib/postgresql/data"]
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
