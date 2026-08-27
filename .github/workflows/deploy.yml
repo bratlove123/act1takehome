@@ -35,6 +35,22 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PGSSL: "true"
 
+      - name: Print Vercel secret suffixes (last 4 chars)
+        run: |
+          mask_last4() {
+            local name="$1"
+            local val="$2"
+            if [ -z "$val" ]; then
+              echo "$name: (empty — secret not set)"
+            else
+              echo "$name: ****${val: -4} (length ${#val})"
+            fi
+          }
+          echo "Vercel secret fingerprint (last 4 characters only):"
+          mask_last4 "VERCEL_TOKEN" "$VERCEL_TOKEN"
+          mask_last4 "VERCEL_ORG_ID" "$VERCEL_ORG_ID"
+          mask_last4 "VERCEL_PROJECT_ID" "$VERCEL_PROJECT_ID"
+
       - name: Install Vercel CLI
         run: npm install -g vercel@39
 
@@ -47,4 +63,8 @@ jobs:
 
       # Remote build on Vercel (avoids `vercel pull`, which fails with some project-scoped tokens).
       - name: Deploy to Vercel (production)
-        run: vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+        run: vercel deploy --prod --yes --token="$VERCEL_TOKEN" --debug
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
