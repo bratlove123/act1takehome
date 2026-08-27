@@ -22,7 +22,7 @@
 ## CI/CD structure
 
 - **PR** (`.github/workflows/ci.yml`): install → migrate/seed against Actions Postgres → lint → test → build frontend+backend → `docker build` backend. Any failure fails the check. No deploy.
-- **Merge to `main`** (`.github/workflows/deploy.yml`): migrate/seed against prod `DATABASE_URL`, then `vercel deploy --prod`. Does not run on PRs or non-main branches.
+- **Merge to `main`** (`.github/workflows/deploy.yml`): migrate/seed against prod `DATABASE_URL`, link project from secrets, then `vercel deploy --prod` (remote build). Does not run on PRs or non-main branches.
 
 Docker image build remains a PR gate (README requirement). Production serves the app on **Vercel serverless Node**, not that container — intentional tradeoff for free-tier simplicity.
 
@@ -47,10 +47,17 @@ Working URL: requires Vercel + Neon credentials (not available in this authoring
 ### Deployment checklist (Vercel + Neon)
 
 1. Create a Neon project/database; copy the pooled or direct `DATABASE_URL`.
-2. Create a Vercel project from this repo; set env vars `DATABASE_URL` and `EXTERNAL_API_KEY`.
-3. Add GitHub Actions secrets: `DATABASE_URL`, `EXTERNAL_API_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
-4. Push to `main` (or merge a PR) and confirm the Deploy workflow is green.
-5. Record the URL:
+2. Create a Vercel project from this repo; set env vars `DATABASE_URL` and `EXTERNAL_API_KEY` in the Vercel dashboard (Production environment).
+3. Get Vercel IDs locally (once): `npx vercel link` → read `orgId` and `projectId` from `.vercel/project.json`.
+4. Create a **team-scoped** or **full-account** Vercel token at [vercel.com/account/tokens](https://vercel.com/account/tokens). Avoid project-scoped tokens — `vercel pull` breaks with them; the deploy workflow uses `vercel deploy --prod` instead.
+5. Add GitHub Actions secrets:
+   - `DATABASE_URL` — Neon connection string (for migrate-on-deploy)
+   - `EXTERNAL_API_KEY`
+   - `VERCEL_TOKEN` — team or account token (not project-scoped)
+   - `VERCEL_ORG_ID` — `team_…` from `.vercel/project.json` (not the team slug)
+   - `VERCEL_PROJECT_ID` — `prj_…` from `.vercel/project.json`
+6. Push to `main` and confirm the Deploy workflow is green.
+7. Record the URL:
 
 ```
 https://<your-vercel-app>.vercel.app
