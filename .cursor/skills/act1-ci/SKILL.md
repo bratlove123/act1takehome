@@ -18,4 +18,6 @@ Must: install, migrate/seed against service Postgres, lint, test, build both pac
 
 Triggers: `push` to `main` only (not every branch, not PRs).
 
-Needs secrets: `DATABASE_URL`, `EXTERNAL_API_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+Needs secrets: `DATABASE_URL`, `EXTERNAL_API_KEY`, `VERCEL_TOKEN` (team/account scope), `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+
+Deploy job links the project via `.vercel/project.json` (from secrets), then `vercel deploy --prod --yes`. Does **not** use `vercel pull` (broken with project-scoped tokens).

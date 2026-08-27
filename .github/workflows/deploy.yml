@@ -38,11 +38,13 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@39
 
-      - name: Pull Vercel project settings
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      # CI has no local `vercel link`; write project.json from secrets.
+      # Do NOT commit `.vercel/` — it is gitignored.
+      - name: Link Vercel project for CI
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
-      - name: Build for production
-        run: vercel build --prod --token="$VERCEL_TOKEN"
-
+      # Remote build on Vercel (avoids `vercel pull`, which fails with some project-scoped tokens).
       - name: Deploy to Vercel (production)
-        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        run: vercel deploy --prod --yes --token="$VERCEL_TOKEN"
