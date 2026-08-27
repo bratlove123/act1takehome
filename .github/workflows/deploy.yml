@@ -35,9 +35,27 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PGSSL: "true"
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel@39
+      - name: Print Vercel secret suffixes (last 4 chars)
+        run: |
+          mask_last4() {
+            local name="$1"
+            local val="$2"
+            if [ -z "$val" ]; then
+              echo "$name: (empty — secret not set)"
+            else
+              echo "$name: ****${val: -4} (length ${#val})"
+            fi
+          }
+          echo "Vercel secret fingerprint (last 4 characters only):"
+          mask_last4 "VERCEL_TOKEN" "$VERCEL_TOKEN"
+          mask_last4 "VERCEL_ORG_ID" "$VERCEL_ORG_ID"
+          mask_last4 "VERCEL_PROJECT_ID" "$VERCEL_PROJECT_ID"
+
+      # Mirror local: npx vercel@59.7.0 --prod with env vars (no global vercel@39).
+      - name: Link Vercel project for CI
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
       - name: Deploy to Vercel (production)
-        run: VERCEL_ORG_ID="${{ secrets.VERCEL_ORG_ID }}" VERCEL_PROJECT_ID="${{ secrets.VERCEL_PROJECT_ID }}"  vercel deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
-
+        run: npx vercel@59.7.0 --prod --yes --token="$VERCEL_TOKEN"
