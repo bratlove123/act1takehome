@@ -11,7 +11,7 @@
     "seed": "node db/seed.js",
     "db:setup": "npm run migrate && npm run seed",
     "lint": "eslint .",
-    "test": "node --test test/**/*.test.js",
+    "test": "node --test test/currency.test.js test/items-api.test.js",
     "build": "node --check server.js && node --check routes/items.js && node --check data/items.js && node --check db/pool.js && node --check services/currency.js"
   },
   "dependencies": {
