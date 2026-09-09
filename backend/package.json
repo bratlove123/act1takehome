@@ -11,8 +11,8 @@
     "seed": "node db/seed.js",
     "db:setup": "npm run migrate && npm run seed",
     "lint": "eslint .",
-    "test": "node --test test/currency.test.js test/items-api.test.js",
-    "build": "node --check server.js && node --check routes/items.js && node --check data/items.js && node --check db/pool.js && node --check services/currency.js"
+    "test": "node --test test/currency.test.js test/items-api.test.js test/oceansx.test.js",
+    "build": "node --check server.js && node --check routes/items.js && node --check routes/oceansx.js && node --check data/items.js && node --check db/pool.js && node --check services/currency.js && node --check services/oceansx.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -27,6 +27,7 @@ ENV POSTGRES_USER=postgres \
     DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/act1 \
     PGSSL=false \
     EXTERNAL_API_KEY=dev-key \
+    OCEANS_X_API_KEY= \
     PORT=4000 \
     FRONTEND_DIST=/app/frontend/dist \
     PGDATA=/var/lib/postgresql/data
