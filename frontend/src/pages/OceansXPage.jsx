@@ -54,7 +54,7 @@ function pickField(obj, keys) {
   return "";
 }
 
-/** Normalize Oceans-X arrival payloads into table rows. */
+/** Normalize Oceans-X payloads (arrival / departure / cert) into table rows. */
 function normalizeRecords(data) {
   if (data == null) return [];
   let list = data;
@@ -65,6 +65,8 @@ function normalizeRecords(data) {
       data.records ||
       data.items ||
       data.ArrivalDeclaration ||
+      data.DepartureDeclaration ||
+      data.PortClearance ||
       [data];
   }
   if (!Array.isArray(list)) list = [list];
@@ -88,6 +90,7 @@ function normalizeRecords(data) {
         pickField(vp, ["imoNumber", "imonumber", "IMO"]) ||
         pickField(r, ["imoNumber", "imonumber", "imo"]),
       flag: pickField(vp, ["flag", "Flag"]) || pickField(r, ["flag", "Flag"]),
+      // arrival
       location: pickField(r, ["location", "Location"]),
       grid: pickField(r, ["grid", "Grid"]),
       purpose: pickField(r, ["purpose", "Purpose"]),
@@ -95,10 +98,43 @@ function normalizeRecords(data) {
       reportedArrivalTime: pickField(r, [
         "reportedArrivalTime",
         "ReportedArrivalTime",
-        "arrivalTime",
       ]),
-      crew: r.crew == null ? "—" : String(r.crew),
-      pax: r.pax == null ? "—" : String(r.pax),
+      // departure
+      nextPort: pickField(r, ["nextPort", "NextPort"]),
+      reportedDepartureTime: pickField(r, [
+        "reportedDepartureTime",
+        "ReportedDepartureTime",
+      ]),
+      crew: r.crew == null || r.crew === "" ? "—" : String(r.crew),
+      pax: r.pax == null || r.pax === "" ? "—" : String(r.pax),
+      // certificate
+      certificateNumber: pickField(r, [
+        "certificateNumber",
+        "CertificateNumber",
+        "certificateno",
+      ]),
+      status: pickField(r, ["status", "Status"]),
+      gdvNumber: pickField(r, ["gdvNumber", "GDVNumber", "gdvno"]),
+      grossTonnage: pickField(r, ["grossTonnage", "GrossTonnage"]),
+      cargo: pickField(r, ["cargo", "Cargo"]),
+      nextPortOfCall: pickField(r, ["nextPortOfCall", "NextPortOfCall"]),
+      nextPortOfCallCountry: pickField(r, [
+        "nextPortOfCallCountry",
+        "NextPortOfCallCountry",
+      ]),
+      dateAndTimeOfDeparture: pickField(r, [
+        "dateAndTimeOfDeparture",
+        "DateAndTimeOfDeparture",
+      ]),
+      dateAndTimeOfIssue: pickField(r, [
+        "dateAndTimeOfIssue",
+        "DateAndTimeOfIssue",
+      ]),
+      expiryDateAndTimeOfPortCertificate: pickField(r, [
+        "expiryDateAndTimeOfPortCertificate",
+        "ExpiryDateAndTimeOfPortCertificate",
+      ]),
+      nameOfMaster: pickField(r, ["nameOfMaster", "NameOfMaster"]),
       raw: r,
     };
   });
@@ -152,6 +188,236 @@ function formatPurpose(purpose) {
   return String(purpose).replace(/,+$/, "");
 }
 
+function CertStatusBadge({ status }) {
+  if (!status) return <span className="text-slate-500">—</span>;
+  const active = status === "1" || /active|valid|ok/i.test(status);
+  return (
+    <span
+      className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${
+        active
+          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+          : "border-amber-500/20 bg-amber-500/10 text-amber-400"
+      }`}
+    >
+      {status === "1" ? "Active (1)" : status}
+    </span>
+  );
+}
+
+function Cell({ children, className = "", title }) {
+  return (
+    <td className={`px-6 py-4 text-slate-300 ${className}`} title={title}>
+      {children || "—"}
+    </td>
+  );
+}
+
+function ResultsTable({ category, rows, loading, hasResult, onViewJson }) {
+  let headers;
+  if (category === "cert") {
+    headers = [
+      "Vessel Name",
+      "CallSign",
+      "IMO",
+      "Flag",
+      "Cert No",
+      "Status",
+      "GDV",
+      "GT / Cargo",
+      "Next Port",
+      "Departure",
+      "Issued",
+      "Expires",
+      "Master",
+      "Actions",
+    ];
+  } else if (category === "departure") {
+    headers = [
+      "Vessel Name",
+      "CallSign",
+      "IMO",
+      "Flag",
+      "Agent",
+      "Next Port",
+      "Reported Arrival",
+      "Reported Departure",
+      "Crew / Pax",
+      "Actions",
+    ];
+  } else {
+    headers = [
+      "Vessel Name",
+      "CallSign",
+      "IMO",
+      "Flag",
+      "Location",
+      "Agent",
+      "Reported Arrival",
+      "Purpose",
+      "Crew / Pax",
+      "Actions",
+    ];
+  }
+  const colCount = headers.length;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm text-slate-300">
+        <thead className="border-b border-slate-700/60 bg-slate-900/60 text-xs uppercase text-slate-400">
+          <tr>
+            {headers.map((h) => (
+              <th
+                key={h}
+                className={`px-6 py-3 ${h === "Actions" ? "text-right" : ""}`}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-800">
+          {loading ? (
+            <tr>
+              <td colSpan={colCount} className="px-6 py-10 text-center text-slate-400">
+                Loading Oceans-X response…
+              </td>
+            </tr>
+          ) : rows.length === 0 ? (
+            <tr>
+              <td colSpan={colCount} className="px-6 py-10 text-center text-slate-400">
+                {hasResult
+                  ? "No tabular fields found — open full JSON to inspect the payload."
+                  : "Run a query to load records from Oceans-X."}
+              </td>
+            </tr>
+          ) : category === "cert" ? (
+            rows.map((row) => (
+              <tr key={row.id} className="transition-colors hover:bg-slate-800/50">
+                <Cell className="whitespace-nowrap font-medium text-white">
+                  {row.vesselName}
+                </Cell>
+                <Cell className="font-mono">{row.callsign}</Cell>
+                <Cell className="font-mono">{row.imo}</Cell>
+                <td className="px-6 py-4">
+                  <FlagBadge flag={row.flag} />
+                </td>
+                <Cell className="font-mono">{row.certificateNumber}</Cell>
+                <td className="px-6 py-4">
+                  <CertStatusBadge status={row.status} />
+                </td>
+                <Cell className="font-mono">{row.gdvNumber}</Cell>
+                <Cell className="whitespace-nowrap">
+                  {row.grossTonnage || "—"} / {row.cargo || "—"}
+                </Cell>
+                <Cell
+                  className="max-w-[10rem] truncate"
+                  title={`${row.nextPortOfCall || ""} ${row.nextPortOfCallCountry || ""}`.trim()}
+                >
+                  {row.nextPortOfCall || "—"}
+                  {row.nextPortOfCallCountry
+                    ? ` (${row.nextPortOfCallCountry})`
+                    : ""}
+                </Cell>
+                <Cell className="whitespace-nowrap">{row.dateAndTimeOfDeparture}</Cell>
+                <Cell className="whitespace-nowrap">{row.dateAndTimeOfIssue}</Cell>
+                <Cell className="whitespace-nowrap">
+                  {row.expiryDateAndTimeOfPortCertificate}
+                </Cell>
+                <Cell className="max-w-[10rem] truncate" title={row.nameOfMaster}>
+                  {row.nameOfMaster}
+                </Cell>
+                <td className="px-6 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onViewJson(row)}
+                    className="text-xs font-medium text-blue-400 hover:text-blue-300"
+                  >
+                    View JSON
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : category === "departure" ? (
+            rows.map((row) => (
+              <tr key={row.id} className="transition-colors hover:bg-slate-800/50">
+                <Cell className="whitespace-nowrap font-medium text-white">
+                  {row.vesselName}
+                </Cell>
+                <Cell className="font-mono">{row.callsign}</Cell>
+                <Cell className="font-mono">{row.imo}</Cell>
+                <td className="px-6 py-4">
+                  <FlagBadge flag={row.flag} />
+                </td>
+                <Cell className="max-w-[12rem] truncate" title={row.agent}>
+                  {row.agent}
+                </Cell>
+                <Cell className="max-w-[12rem] truncate" title={row.nextPort}>
+                  {row.nextPort}
+                </Cell>
+                <Cell className="whitespace-nowrap">{row.reportedArrivalTime}</Cell>
+                <Cell className="whitespace-nowrap">{row.reportedDepartureTime}</Cell>
+                <Cell className="whitespace-nowrap">
+                  {row.crew} / {row.pax}
+                </Cell>
+                <td className="px-6 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onViewJson(row)}
+                    className="text-xs font-medium text-blue-400 hover:text-blue-300"
+                  >
+                    View JSON
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            rows.map((row) => (
+              <tr key={row.id} className="transition-colors hover:bg-slate-800/50">
+                <Cell className="whitespace-nowrap font-medium text-white">
+                  {row.vesselName}
+                </Cell>
+                <Cell className="font-mono">{row.callsign}</Cell>
+                <Cell className="font-mono">{row.imo}</Cell>
+                <td className="px-6 py-4">
+                  <FlagBadge flag={row.flag} />
+                </td>
+                <Cell className="font-mono">
+                  {row.location || "—"}
+                  {row.grid ? (
+                    <span className="ml-1 text-slate-500">({row.grid})</span>
+                  ) : null}
+                </Cell>
+                <Cell className="max-w-[12rem] truncate" title={row.agent}>
+                  {row.agent}
+                </Cell>
+                <Cell className="whitespace-nowrap">{row.reportedArrivalTime}</Cell>
+                <Cell
+                  className="max-w-[8rem] truncate font-mono text-xs text-slate-400"
+                  title={row.purpose}
+                >
+                  {formatPurpose(row.purpose)}
+                </Cell>
+                <Cell className="whitespace-nowrap">
+                  {row.crew} / {row.pax}
+                </Cell>
+                <td className="px-6 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => onViewJson(row)}
+                    className="text-xs font-medium text-blue-400 hover:text-blue-300"
+                  >
+                    View JSON
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** Format local time as yyyy-MM-dd HH:mm:ss for Oceans-X pastNhours. */
 function formatOceansDateTime(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -166,7 +432,7 @@ function countRecords(data) {
 }
 
 export default function OceansXPage() {
-  const category = "arrival";
+  const [category, setCategory] = useState("arrival");
   const [mode, setMode] = useState("hours");
   const [form, setForm] = useState({
     ...DEFAULTS,
@@ -234,6 +500,7 @@ export default function OceansXPage() {
         next.arrivals = countRecords(arrivalsRes.value.data);
         // Seed the main table with past-24h arrivals on first load
         setResult(arrivalsRes.value);
+        setCategory("arrival");
         setMode("hours");
       } else {
         next.arrivalsError =
@@ -255,6 +522,15 @@ export default function OceansXPage() {
       cancelled = true;
     };
   }, []);
+
+  function switchCategory(cat) {
+    setCategory(cat);
+    const modes = modesForCategory(cat);
+    if (!modes.includes(mode)) setMode(modes[0]);
+    setError(null);
+    setResult(null);
+    setJsonOpen(false);
+  }
 
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -281,9 +557,18 @@ export default function OceansXPage() {
     }
   }
 
-  function viewJson(row) {
-    setJsonPayload(row ? row.raw : result);
+  function viewJson(rowOrNull) {
+    const payload =
+      rowOrNull == null
+        ? result
+        : (rowOrNull.raw ?? rowOrNull);
+    setJsonPayload(payload ?? { note: "No payload available" });
     setJsonOpen(true);
+  }
+
+  function closeJsonModal() {
+    setJsonOpen(false);
+    setJsonPayload(null);
   }
 
   return (
@@ -369,14 +654,26 @@ export default function OceansXPage() {
           </div>
         </div>
 
-        {/* Tabs — arrivals only */}
-        <div className="flex space-x-8 border-b border-slate-800 text-sm font-medium">
-          <button
-            type="button"
-            className="flex items-center gap-2 border-b-2 border-blue-500 pb-3 text-blue-400"
-          >
-            Vessel Arrival Declarations
-          </button>
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-x-8 gap-y-2 border-b border-slate-800 text-sm font-medium">
+          {[
+            { id: "cert", label: "Port Clearance Certificates" },
+            { id: "arrival", label: "Vessel Arrival Declarations" },
+            { id: "departure", label: "Vessel Departure Declarations" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => switchCategory(tab.id)}
+              className={`flex items-center gap-2 pb-3 ${
+                category === tab.id
+                  ? "border-b-2 border-blue-500 text-blue-400"
+                  : "border-b-2 border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Query builder */}
@@ -553,106 +850,44 @@ export default function OceansXPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="border-b border-slate-700/60 bg-slate-900/60 text-xs uppercase text-slate-400">
-                <tr>
-                  <th className="px-6 py-3">Vessel Name</th>
-                  <th className="px-6 py-3">CallSign</th>
-                  <th className="px-6 py-3">IMO</th>
-                  <th className="px-6 py-3">Flag</th>
-                  <th className="px-6 py-3">Location</th>
-                  <th className="px-6 py-3">Agent</th>
-                  <th className="px-6 py-3">Reported Arrival</th>
-                  <th className="px-6 py-3">Purpose</th>
-                  <th className="px-6 py-3">Crew / Pax</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {loading ? (
-                  <tr>
-                    <td colSpan={10} className="px-6 py-10 text-center text-slate-400">
-                      Loading Oceans-X response…
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-6 py-10 text-center text-slate-400">
-                      {result
-                        ? "No tabular fields found — open full JSON to inspect the payload."
-                        : "Run a query to load records from Oceans-X."}
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr key={row.id} className="transition-colors hover:bg-slate-800/50">
-                      <td className="whitespace-nowrap px-6 py-4 font-medium text-white">
-                        {row.vesselName || "—"}
-                      </td>
-                      <td className="px-6 py-4 font-mono text-slate-300">
-                        {row.callsign || "—"}
-                      </td>
-                      <td className="px-6 py-4 font-mono text-slate-300">
-                        {row.imo || "—"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <FlagBadge flag={row.flag} />
-                      </td>
-                      <td className="px-6 py-4 font-mono text-slate-300">
-                        {row.location || "—"}
-                        {row.grid ? (
-                          <span className="ml-1 text-slate-500">({row.grid})</span>
-                        ) : null}
-                      </td>
-                      <td className="max-w-[12rem] truncate px-6 py-4 text-slate-300" title={row.agent}>
-                        {row.agent || "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-slate-300">
-                        {row.reportedArrivalTime || "—"}
-                      </td>
-                      <td
-                        className="max-w-[8rem] truncate px-6 py-4 font-mono text-xs text-slate-400"
-                        title={row.purpose}
-                      >
-                        {formatPurpose(row.purpose)}
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-slate-300">
-                        {row.crew} / {row.pax}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => viewJson(row)}
-                          className="text-xs font-medium text-blue-400 hover:text-blue-300"
-                        >
-                          View JSON
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            <ResultsTable
+              category={category}
+              rows={rows}
+              loading={loading}
+              hasResult={Boolean(result)}
+              onViewJson={viewJson}
+            />
           </div>
         </div>
 
-        {jsonOpen && jsonPayload ? (
-          <div className="rounded-xl border border-slate-700 bg-slate-900 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h4 className="flex items-center gap-2 font-mono text-sm font-bold text-white">
-                Raw API Payload Response
-              </h4>
-              <button
-                type="button"
-                onClick={() => setJsonOpen(false)}
-                className="text-xs text-slate-400 hover:text-white"
-              >
-                Close [X]
-              </button>
+        {jsonOpen ? (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Raw API JSON"
+            onClick={closeJsonModal}
+          >
+            <div
+              className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+                <h4 className="font-mono text-sm font-bold text-white">
+                  Raw API Payload Response
+                </h4>
+                <button
+                  type="button"
+                  onClick={closeJsonModal}
+                  className="rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                  Close [X]
+                </button>
+              </div>
+              <pre className="overflow-auto p-6 font-mono text-xs text-emerald-400">
+                {JSON.stringify(jsonPayload, null, 2)}
+              </pre>
             </div>
-            <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-emerald-400">
-              {JSON.stringify(jsonPayload, null, 2)}
-            </pre>
           </div>
         ) : null}
       </main>
