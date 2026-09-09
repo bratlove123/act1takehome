@@ -26,6 +26,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/act1
       EXTERNAL_API_KEY: ${{ secrets.EXTERNAL_API_KEY }}
+      OCEANS_X_API_KEY: ${{ secrets.OCEANS_X_API_KEY }}
       PGSSL: "false"
 
     steps:
@@ -56,6 +57,10 @@ jobs:
       - name: Provide EXTERNAL_API_KEY fallback for forks
         if: env.EXTERNAL_API_KEY == ''
         run: echo "EXTERNAL_API_KEY=ci-test-external-api-key" >> "$GITHUB_ENV"
+
+      - name: Provide OCEANS_X_API_KEY fallback for forks
+        if: env.OCEANS_X_API_KEY == ''
+        run: echo "OCEANS_X_API_KEY=ci-test-oceans-x-api-key" >> "$GITHUB_ENV"
 
       - name: Migrate and seed database
         run: npm run db:setup

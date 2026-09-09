@@ -11,6 +11,7 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       EXTERNAL_API_KEY: ${{ secrets.EXTERNAL_API_KEY }}
+      OCEANS_X_API_KEY: ${{ secrets.OCEANS_X_API_KEY }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -35,11 +36,29 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PGSSL: "true"
 
-      # Mirror local: npx vercel@59.7.0 --prod with env vars (no global vercel@39).
       - name: Link Vercel project for CI
         run: |
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      # Keep production runtime env in sync with GitHub secrets (never echo values).
+      - name: Sync secrets to Vercel (production)
+        run: |
+          set -euo pipefail
+          sync_env() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "Skipping $name (secret empty / not set)"
+              return 0
+            fi
+            npx vercel@59.7.0 env rm "$name" production --yes --token="$VERCEL_TOKEN" >/dev/null 2>&1 || true
+            printf '%s' "$value" | npx vercel@59.7.0 env add "$name" production --token="$VERCEL_TOKEN"
+            echo "Synced $name to Vercel production"
+          }
+          sync_env "EXTERNAL_API_KEY" "$EXTERNAL_API_KEY"
+          sync_env "OCEANS_X_API_KEY" "$OCEANS_X_API_KEY"
+          sync_env "DATABASE_URL" "$DATABASE_URL"
 
       - name: Deploy to Vercel (production)
         run: npx vercel@59.7.0 --prod --yes --token="$VERCEL_TOKEN"
