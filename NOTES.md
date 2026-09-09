@@ -13,7 +13,8 @@
 | Secret | Local | CI (PR) | Production |
 |--------|-------|---------|------------|
 | `DATABASE_URL` | `.env` (gitignored) → Docker Compose Postgres or Neon | GitHub Actions service Postgres URL (non-secret) + optional Neon for deploy job | Vercel + Neon; also GH secret for migrate-on-deploy |
-| `EXTERNAL_API_KEY` | `.env` | `secrets.EXTERNAL_API_KEY` (fallback test key if unset on forks) | Vercel env + GH secret |
+| `EXTERNAL_API_KEY` | `.env` | `secrets.EXTERNAL_API_KEY` (fallback test key if unset on forks) | Vercel env + GH secret (synced on deploy) |
+| `OCEANS_X_API_KEY` | `.env` | `secrets.OCEANS_X_API_KEY` (fallback test key if unset on forks) | Vercel env + GH secret (synced on deploy) |
 
 - `.env` is gitignored; only `.env.example` is committed.
 - The FX stub in `backend/services/currency.js` reads the key server-side, never logs it, and never puts it in JSON responses. Missing key → HTTP 503 with a generic message.
@@ -47,12 +48,13 @@ Working URL: requires Vercel + Neon credentials (not available in this authoring
 ### Deployment checklist (Vercel + Neon)
 
 1. Create a Neon project/database; copy the pooled or direct `DATABASE_URL`.
-2. Create a Vercel project from this repo; set env vars `DATABASE_URL` and `EXTERNAL_API_KEY` in the Vercel dashboard (Production environment).
+2. Create a Vercel project from this repo; set env vars `DATABASE_URL`, `EXTERNAL_API_KEY`, and `OCEANS_X_API_KEY` in the Vercel dashboard (Production), **or** let the Deploy workflow sync them from GitHub secrets.
 3. Get Vercel IDs locally (once): `npx vercel link` → read `orgId` and `projectId` from `.vercel/project.json`.
 4. Create a **team-scoped** or **full-account** Vercel token at [vercel.com/account/tokens](https://vercel.com/account/tokens). Avoid project-scoped tokens — `vercel pull` breaks with them; the deploy workflow uses `vercel deploy --prod` instead.
 5. Add GitHub Actions secrets:
-   - `DATABASE_URL` — Neon connection string (for migrate-on-deploy)
+   - `DATABASE_URL` — Neon connection string (for migrate-on-deploy + Vercel sync)
    - `EXTERNAL_API_KEY`
+   - `OCEANS_X_API_KEY` — Oceans-X / MPA API key (server-side only)
    - `VERCEL_TOKEN` — team or account token (not project-scoped)
    - `VERCEL_ORG_ID` — `team_…` from `.vercel/project.json` (not the team slug)
    - `VERCEL_PROJECT_ID` — `prj_…` from `.vercel/project.json`
