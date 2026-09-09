@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Port Clearance & Vessel Operations Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-blue-600 text-white p-2 rounded-lg">
+          <i class="fa-solid fa-ship text-xl"></i>
+        </div>
+        <div>
+          <span class="text-lg font-bold tracking-tight text-white">OCEANS-X <span class="text-blue-500 font-normal">PortClear</span></span>
+          <span class="block text-xs text-slate-400">Maritime Port Authority Clearance Portal</span>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-4">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
+          API Live Stream Active
+        </span>
+        <button class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-md transition-colors flex items-center gap-2">
+          <i class="fa-solid fa-key"></i> API Keys
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- KPI Summary Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-xl">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400">Arrivals (Past 24h)</span>
+          <i class="fa-solid fa-plane-arrival text-blue-400"></i>
+        </div>
+        <div class="text-2xl font-bold mt-2 text-white" id="stat-arrivals">142</div>
+        <div class="text-xs text-emerald-400 mt-1"><i class="fa-solid fa-arrow-up"></i> +8.2% from yesterday</div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-xl">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400">Departures (Past 24h)</span>
+          <i class="fa-solid fa-plane-departure text-indigo-400"></i>
+        </div>
+        <div class="text-2xl font-bold mt-2 text-white" id="stat-departures">119</div>
+        <div class="text-xs text-emerald-400 mt-1"><i class="fa-solid fa-arrow-up"></i> +3.1% from yesterday</div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-xl">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400">Active Certificates</span>
+          <i class="fa-solid fa-file-contract text-emerald-400"></i>
+        </div>
+        <div class="text-2xl font-bold mt-2 text-white">89</div>
+        <div class="text-xs text-slate-400 mt-1">Updated hourly</div>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700/60 p-4 rounded-xl">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400">Pending Clearances</span>
+          <i class="fa-solid fa-clock text-amber-400"></i>
+        </div>
+        <div class="text-2xl font-bold mt-2 text-white">14</div>
+        <div class="text-xs text-amber-400 mt-1">Requires review</div>
+      </div>
+    </div>
+
+    <!-- API Dataset Navigation Tabs -->
+    <div class="border-b border-slate-800 flex space-x-8 text-sm font-medium">
+      <button id="tab-cert" onclick="switchCategory('cert')" class="pb-3 border-b-2 border-blue-500 text-blue-400 flex items-center gap-2">
+        <i class="fa-solid fa-certificate"></i> Port Clearance Certificates
+      </button>
+      <button id="tab-arrival" onclick="switchCategory('arrival')" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-anchor"></i> Vessel Arrival Declarations
+      </button>
+      <button id="tab-departure" onclick="switchCategory('departure')" class="pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+        <i class="fa-solid fa-ship"></i> Vessel Departure Declarations
+      </button>
+    </div>
+
+    <!-- Query Builder Panel -->
+    <div class="bg-slate-800/40 border border-slate-700/80 rounded-xl p-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 id="query-title" class="text-lg font-semibold text-white">Port Clearance Certificate Query</h2>
+          <p id="query-desc" class="text-xs text-slate-400 mt-0.5">Fetch official clearance cert data by CallSign, IMO Number, or Vessel Name.</p>
+        </div>
+        
+        <!-- Search Endpoint Selection Mode -->
+        <div id="filter-type-selector" class="flex rounded-lg bg-slate-900/80 p-1 border border-slate-700">
+          <button onclick="setFilterMode('imo')" id="btn-mode-imo" class="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white">IMO Number</button>
+          <button onclick="setFilterMode('callsign')" id="btn-mode-callsign" class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-white">CallSign</button>
+          <button onclick="setFilterMode('vessel')" id="btn-mode-vessel" class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-white">Vessel Name</button>
+          <button onclick="setFilterMode('date')" id="btn-mode-date" class="hidden px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-white">Date / Hours</button>
+        </div>
+      </div>
+
+      <!-- Query Form Controls -->
+      <form id="search-form" onsubmit="handleSearch(event)" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+        
+        <!-- Input Field: Search Value -->
+        <div class="md:col-span-8" id="input-container-main">
+          <label id="input-label" class="block text-xs font-medium text-slate-400 mb-1">IMO Number</label>
+          <div class="relative">
+            <input type="text" id="query-input" placeholder="e.g. 9876543" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+            <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-slate-500 text-sm"></i>
+          </div>
+        </div>
+
+        <!-- Input Field: Date / Hours (Dynamically Shown) -->
+        <div class="hidden md:col-span-4" id="input-container-time">
+          <label id="time-label" class="block text-xs font-medium text-slate-400 mb-1">Lookback Hours (Past 'N' Hours)</label>
+          <select id="time-select" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+            <option value="6">Past 6 Hours</option>
+            <option value="12">Past 12 Hours</option>
+            <option value="24" selected>Past 24 Hours</option>
+            <option value="48">Past 48 Hours</option>
+          </select>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="md:col-span-4 flex items-end">
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+            <i class="fa-solid fa-database"></i> Query API Endpoint
+          </button>
+        </div>
+      </form>
+      
+      <!-- API Endpoint Path Display -->
+      <div class="mt-4 pt-3 border-t border-slate-800 flex items-center text-xs font-mono text-slate-400 gap-2">
+        <span class="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">GET</span>
+        <span id="api-endpoint-url">/api/v1/port-clearance/imo/9876543</span>
+      </div>
+    </div>
+
+    <!-- Data Results Section -->
+    <div class="bg-slate-800/40 border border-slate-700/80 rounded-xl overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-700/60 flex items-center justify-between">
+        <h3 class="font-semibold text-white text-sm flex items-center gap-2">
+          <i class="fa-solid fa-table-list text-blue-400"></i> Clearance & Declaration Records
+        </h3>
+        <span class="text-xs text-slate-400">Data updated every 1 hour</span>
+      </div>
+
+      <!-- Results Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/60 text-xs uppercase text-slate-400 border-b border-slate-700/60">
+            <tr>
+              <th class="px-6 py-3">Vessel Name</th>
+              <th class="px-6 py-3">CallSign</th>
+              <th class="px-6 py-3">IMO Number</th>
+              <th class="px-6 py-3">Declaration / Cert Date</th>
+              <th class="px-6 py-3">Status</th>
+              <th class="px-6 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="results-table-body" class="divide-y divide-slate-800">
+            <tr class="hover:bg-slate-800/50 transition-colors">
+              <td class="px-6 py-4 font-medium text-white flex items-center gap-2">
+                <i class="fa-solid fa-ship text-slate-400"></i> MAERSK PACIFIC
+              </td>
+              <td class="px-6 py-4 font-mono text-slate-300">9V1234</td>
+              <td class="px-6 py-4 font-mono text-slate-300">9876543</td>
+              <td class="px-6 py-4 text-slate-300">2026-09-09 09:30 UTC</td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <i class="fa-solid fa-check mr-1 text-[10px]"></i> Cleared
+                </span>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <button onclick="viewDetails('MAERSK PACIFIC')" class="text-xs text-blue-400 hover:text-blue-300 font-medium">View JSON</button>
+              </td>
+            </tr>
+
+            <tr class="hover:bg-slate-800/50 transition-colors">
+              <td class="px-6 py-4 font-medium text-white flex items-center gap-2">
+                <i class="fa-solid fa-ship text-slate-400"></i> OCEAN GUARDIAN
+              </td>
+              <td class="px-6 py-4 font-mono text-slate-300">9V5678</td>
+              <td class="px-6 py-4 font-mono text-slate-300">9123456</td>
+              <td class="px-6 py-4 text-slate-300">2026-09-09 08:15 UTC</td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <i class="fa-solid fa-circle-info mr-1 text-[10px]"></i> Declared
+                </span>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <button onclick="viewDetails('OCEAN GUARDIAN')" class="text-xs text-blue-400 hover:text-blue-300 font-medium">View JSON</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- JSON Preview Modal / Card -->
+    <div id="json-modal" class="hidden bg-slate-900 border border-slate-700 rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h4 class="font-bold text-white text-sm font-mono flex items-center gap-2">
+          <i class="fa-solid fa-code text-emerald-400"></i> Raw API Payload Response
+        </h4>
+        <button onclick="closeJsonModal()" class="text-slate-400 hover:text-white text-xs">Close [X]</button>
+      </div>
+      <pre id="json-content" class="bg-slate-950 p-4 rounded-lg text-emerald-400 text-xs font-mono overflow-x-auto border border-slate-800"></pre>
+    </div>
+
+  </main>
+
+  <script>
+    let currentCategory = 'cert'; // 'cert', 'arrival', 'departure'
+    let currentFilterMode = 'imo'; // 'imo', 'callsign', 'vessel', 'date'
+
+    const categoryMap = {
+      cert: {
+        title: "Port Clearance Certificate Query",
+        desc: "Fetch official clearance cert data by CallSign, IMO Number, or Vessel Name.",
+        endpoint: "/api/v1/port-clearance"
+      },
+      arrival: {
+        title: "Vessel Arrival Declaration Query",
+        desc: "Access arrival declarations by CallSign, Date, IMO, Vessel Name, or Past 'N' Hours.",
+        endpoint: "/api/v1/vessel-arrival"
+      },
+      departure: {
+        title: "Vessel Departure Declaration Query",
+        desc: "Access departure declarations by CallSign, Date, IMO, Vessel Name, or Past 'N' Hours.",
+        endpoint: "/api/v1/vessel-departure"
+      }
+    };
+
+    function switchCategory(cat) {
+      currentCategory = cat;
+      
+      // Update Tab Styles
+      ['cert', 'arrival', 'departure'].forEach(c => {
+        const btn = document.getElementById(`tab-${c}`);
+        if (c === cat) {
+          btn.className = "pb-3 border-b-2 border-blue-500 text-blue-400 flex items-center gap-2";
+        } else {
+          btn.className = "pb-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2";
+        }
+      });
+
+      // Show/Hide Date mode for Arrival/Departure
+      const btnDate = document.getElementById('btn-mode-date');
+      if (cat === 'cert') {
+        btnDate.classList.add('hidden');
+        if (currentFilterMode === 'date') setFilterMode('imo');
+      } else {
+        btnDate.classList.remove('hidden');
+      }
+
+      // Update Titles
+      document.getElementById('query-title').innerText = categoryMap[cat].title;
+      document.getElementById('query-desc').innerText = categoryMap[cat].desc;
+
+      updateEndpointUrl();
+    }
+
+    function setFilterMode(mode) {
+      currentFilterMode = mode;
+      
+      ['imo', 'callsign', 'vessel', 'date'].forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        if (btn) {
+          if (m === mode) {
+            btn.className = "px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white";
+          } else {
+            btn.className = "px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-white";
+          }
+        }
+      });
+
+      const mainContainer = document.getElementById('input-container-main');
+      const timeContainer = document.getElementById('input-container-time');
+      const label = document.getElementById('input-label');
+      const input = document.getElementById('query-input');
+
+      if (mode === 'date') {
+        mainContainer.className = "md:col-span-4";
+        timeContainer.classList.remove('hidden');
+        label.innerText = "Select Specific Date";
+        input.type = "date";
+      } else {
+        mainContainer.className = "md:col-span-8";
+        timeContainer.classList.add('hidden');
+        input.type = "text";
+        if (mode === 'imo') {
+          label.innerText = "IMO Number";
+          input.placeholder = "e.g. 9876543";
+        } else if (mode === 'callsign') {
+          label.innerText = "Vessel CallSign";
+          input.placeholder = "e.g. 9V1234";
+        } else if (mode === 'vessel') {
+          label.innerText = "Vessel Name";
+          input.placeholder = "e.g. MAERSK PACIFIC";
+        }
+      }
+
+      updateEndpointUrl();
+    }
+
+    function updateEndpointUrl() {
+      const val = document.getElementById('query-input').value || 'sample_val';
+      const base = categoryMap[currentCategory].endpoint;
+      document.getElementById('api-endpoint-url').innerText = `${base}/${currentFilterMode}/${val}`;
+    }
+
+    function handleSearch(e) {
+      e.preventDefault();
+      updateEndpointUrl();
+      
+      const queryVal = document.getElementById('query-input').value.toUpperCase() || "MAERSK PACIFIC";
+      const tbody = document.getElementById('results-table-body');
+
+      tbody.innerHTML = `
+        <tr class="hover:bg-slate-800/50 transition-colors">
+          <td class="px-6 py-4 font-medium text-white flex items-center gap-2">
+            <i class="fa-solid fa-ship text-slate-400"></i> ${queryVal}
+          </td>
+          <td class="px-6 py-4 font-mono text-slate-300">${currentFilterMode === 'callsign' ? queryVal : '9V8899'}</td>
+          <td class="px-6 py-4 font-mono text-slate-300">${currentFilterMode === 'imo' ? queryVal : '9871122'}</td>
+          <td class="px-6 py-4 text-slate-300">2026-09-09 10:00 UTC</td>
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <i class="fa-solid fa-check mr-1 text-[10px]"></i> Active / Verified
+            </span>
+          </td>
+          <td class="px-6 py-4 text-right">
+            <button onclick="viewDetails('${queryVal}')" class="text-xs text-blue-400 hover:text-blue-300 font-medium">View JSON</button>
+          </td>
+        </tr>
+      `;
+    }
+
+    function viewDetails(vesselName) {
+      const modal = document.getElementById('json-modal');
+      const content = document.getElementById('json-content');
+      modal.classList.remove('hidden');
+
+      const mockJson = {
+        "status": "success",
+        "api_category": currentCategory,
+        "query_mode": currentFilterMode,
+        "timestamp": new Date().toISOString(),
+        "data": {
+          "vessel_name": vesselName,
+          "callsign": "9V1234",
+          "imo_number": "9876543",
+          "clearance_status": "APPROVED",
+          "certificate_id": "CERT-2026-MPA-00921",
+          "declaration_type": currentCategory === 'arrival' ? 'ARRIVAL' : (currentCategory === 'departure' ? 'DEPARTURE' : 'CLEARANCE_CERT'),
+          "port_of_clearance": "Singapore (SGSIN)",
+          "issue_date": "2026-09-09T09:30:00Z",
+          "valid_until": "2026-09-12T09:30:00Z"
+        }
+      };
+
+      content.innerText = JSON.stringify(mockJson, null, 2);
+    }
+
+    function closeJsonModal() {
+      document.getElementById('json-modal').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

@@ -81,10 +81,27 @@ Run:
 docker run --rm --name act1-allinone \
   -p 4000:4000 \
   -v act1_pgdata:/var/lib/postgresql/data \
+  -e EXTERNAL_API_KEY=dev-key \
+  -e OCEANS_X_API_KEY="$OCEANS_X_API_KEY" \
   act1-allinone
 ```
 
-Then open http://localhost:4000 — the React app is served on `/`, the API on `/api/items`, health on `/health`.
+Or load the key from your local `.env` without pasting it on the command line:
+
+```bash
+# from repo root (requires Docker Compose v2+)
+docker run --rm --name act1-allinone \
+  -p 4000:4000 \
+  -v act1_pgdata:/var/lib/postgresql/data \
+  --env-file .env \
+  act1-allinone
+```
+
+`--env-file .env` injects `OCEANS_X_API_KEY`, `EXTERNAL_API_KEY`, etc. into the container. Do **not** put the real key in `Dockerfile.allinone` (it would end up in the image layers).
+
+Then open:
+- Catalog: http://localhost:4000/
+- Oceans-X: http://localhost:4000/oceans-x
 
 Notes:
 
