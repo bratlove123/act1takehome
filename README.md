@@ -20,10 +20,12 @@ server-side FX enrichment, GitHub Actions CI/CD, and Vercel + Neon deploy.
 
 ```bash
 cp .env.example .env
-# edit DATABASE_URL / EXTERNAL_API_KEY as needed
+# edit DATABASE_URL / EXTERNAL_API_KEY / OCEANS_X_API_KEY / OCEANS_X_ACCESS_KEY as needed
 ```
 
 Never commit `.env`. Secrets for CI/deploy live in GitHub Actions / Vercel.
+
+`OCEANS_X_ACCESS_KEY` gates the `/oceans-x` portal (users must enter it to unlock). It is separate from `OCEANS_X_API_KEY` (MPA upstream).
 
 ## Running the app
 
@@ -83,10 +85,11 @@ docker run --rm --name act1-allinone \
   -v act1_pgdata:/var/lib/postgresql/data \
   -e EXTERNAL_API_KEY=dev-key \
   -e OCEANS_X_API_KEY="$OCEANS_X_API_KEY" \
+  -e OCEANS_X_ACCESS_KEY="$OCEANS_X_ACCESS_KEY" \
   act1-allinone
 ```
 
-Or load the key from your local `.env` without pasting it on the command line:
+Or load keys from your local `.env` without pasting them on the command line:
 
 ```bash
 # from repo root (requires Docker Compose v2+)
@@ -97,7 +100,9 @@ docker run --rm --name act1-allinone \
   act1-allinone
 ```
 
-`--env-file .env` injects `OCEANS_X_API_KEY`, `EXTERNAL_API_KEY`, etc. into the container. Do **not** put the real key in `Dockerfile.allinone` (it would end up in the image layers).
+`--env-file .env` injects `OCEANS_X_API_KEY`, `OCEANS_X_ACCESS_KEY`, `EXTERNAL_API_KEY`, etc. into the container. Do **not** put real keys in `Dockerfile.allinone` (they would end up in the image layers).
+
+If you see **Oceans-X access is not configured**, the container is missing `OCEANS_X_ACCESS_KEY` — re-run with `-e OCEANS_X_ACCESS_KEY=…` or `--env-file .env`.
 
 Then open:
 - Catalog: http://localhost:4000/

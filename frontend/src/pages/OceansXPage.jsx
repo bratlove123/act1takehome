@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import OceansXAccessGate from "../OceansXAccessGate";
+import {
+  clearStoredAccessKey,
+  getStoredAccessKey,
+} from "../oceansxAccess";
 import { queryOceansX } from "../oceansxApi";
 import GdSubmitForm from "../gd/GdSubmitForm";
 import PansSubmitForm from "../pans/PansSubmitForm";
@@ -451,6 +456,7 @@ export default function OceansXPage() {
   const navigate = useNavigate();
   const viewMode = resolveView(viewParam);
 
+  const [unlocked, setUnlocked] = useState(() => Boolean(getStoredAccessKey()));
   const [category, setCategory] = useState("arrival");
   const [mode, setMode] = useState("hours");
   const [form, setForm] = useState({
@@ -483,6 +489,17 @@ export default function OceansXPage() {
   );
 
   useEffect(() => {
+    function onAccessDenied() {
+      clearStoredAccessKey();
+      setUnlocked(false);
+    }
+    window.addEventListener("oceansx:access-denied", onAccessDenied);
+    return () => window.removeEventListener("oceansx:access-denied", onAccessDenied);
+  }, []);
+
+  useEffect(() => {
+    if (!unlocked) return undefined;
+
     let cancelled = false;
 
     async function loadPast24h() {
@@ -522,6 +539,10 @@ export default function OceansXPage() {
         setCategory("arrival");
         setMode("hours");
       } else {
+        if (arrivalsRes.reason?.status === 401) {
+          clearStoredAccessKey();
+          setUnlocked(false);
+        }
         next.arrivalsError =
           arrivalsRes.reason?.message || "Failed to load arrivals";
       }
@@ -529,6 +550,10 @@ export default function OceansXPage() {
       if (departuresRes.status === "fulfilled") {
         next.departures = countRecords(departuresRes.value.data);
       } else {
+        if (departuresRes.reason?.status === 401) {
+          clearStoredAccessKey();
+          setUnlocked(false);
+        }
         next.departuresError =
           departuresRes.reason?.message || "Failed to load departures";
       }
@@ -540,7 +565,7 @@ export default function OceansXPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [unlocked]);
 
   function switchCategory(cat) {
     setCategory(cat);
@@ -565,6 +590,11 @@ export default function OceansXPage() {
       const res = await queryOceansX({ category, mode, params });
       setResult(res);
     } catch (err) {
+      if (err.status === 401) {
+        clearStoredAccessKey();
+        setUnlocked(false);
+        return;
+      }
       setResult(null);
       setError(err.message || "Query failed");
       if (err.upstream) {
@@ -625,6 +655,20 @@ export default function OceansXPage() {
             >
               Item Catalog
             </Link>
+            {unlocked ? (
+              <button
+                type="button"
+                onClick={() => {
+                  clearStoredAccessKey();
+                  setUnlocked(false);
+                  setResult(null);
+                  setError(null);
+                }}
+                className="rounded-md bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 ring-1 ring-slate-700 transition hover:bg-slate-700"
+              >
+                Lock
+              </button>
+            ) : null}
             <span
               className="hidden items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white sm:inline-flex"
               title="API key is held server-side (OCEANS_X_API_KEY)"
@@ -636,6 +680,10 @@ export default function OceansXPage() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+        {!unlocked ? (
+          <OceansXAccessGate onUnlocked={() => setUnlocked(true)} />
+        ) : (
+          <>
         {/* KPI strip — live past-24h counts */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-slate-700/60 bg-slate-800/60 p-4">
@@ -906,6 +954,8 @@ export default function OceansXPage() {
             />
           </div>
         </div>
+          </>
+        )}
           </>
         )}
 

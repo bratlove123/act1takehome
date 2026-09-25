@@ -6,6 +6,30 @@ const {
   submitGeneralDeclaration,
   buildUpstream,
 } = require("../services/oceansx");
+const {
+  assertAccessKey,
+  requireOceansXAccess,
+} = require("../services/oceansxAccess");
+
+/**
+ * POST /api/oceansx/unlock
+ * Body: { accessKey } — verify portal access key (does not expose env value).
+ */
+router.post("/unlock", (req, res) => {
+  try {
+    const accessKey =
+      (req.body && req.body.accessKey) || req.get("x-oceans-x-access-key") || "";
+    assertAccessKey(accessKey);
+    res.json({ status: "ok" });
+  } catch (err) {
+    if (err.code === "MISSING_OCEANS_X_ACCESS_KEY") {
+      return res.status(503).json({ error: "Oceans-X access is not configured" });
+    }
+    return res.status(401).json({ error: "Invalid access key" });
+  }
+});
+
+router.use(requireOceansXAccess);
 
 /**
  * POST /api/oceansx/query
