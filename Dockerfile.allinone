@@ -28,6 +28,7 @@ ENV POSTGRES_USER=postgres \
     PGSSL=false \
     EXTERNAL_API_KEY=dev-key \
     OCEANS_X_API_KEY= \
+    OCEANS_X_ACCESS_KEY= \
     PORT=4000 \
     FRONTEND_DIST=/app/frontend/dist \
     PGDATA=/var/lib/postgresql/data

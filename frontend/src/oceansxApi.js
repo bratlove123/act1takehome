@@ -1,23 +1,44 @@
+import { accessHeaders, clearStoredAccessKey } from "./oceansxAccess";
+
 const BASE = "/api/oceansx";
+
+async function oceansxFetch(path, options = {}) {
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers: accessHeaders({
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    clearStoredAccessKey();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("oceansx:access-denied"));
+    }
+    const err = new Error(body.error || "Invalid access key");
+    err.status = 401;
+    err.code = "ACCESS_DENIED";
+    throw err;
+  }
+  if (!res.ok) {
+    const err = new Error(body.error || "Oceans-X request failed");
+    err.status = res.status;
+    err.upstream = body.upstream || body;
+    throw err;
+  }
+  return body;
+}
 
 /**
  * Query Oceans-X via backend proxy (API key stays on the server).
  * @param {{ category: string, mode: string, params: Record<string, string> }} payload
  */
 export async function queryOceansX(payload) {
-  const res = await fetch(`${BASE}/query`, {
+  return oceansxFetch("/query", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(body.error || "Oceans-X query failed");
-    err.status = res.status;
-    err.upstream = body.upstream;
-    throw err;
-  }
-  return body;
 }
 
 /**
@@ -25,19 +46,10 @@ export async function queryOceansX(payload) {
  * @param {object} payload Full PANS request body
  */
 export async function submitPortClearance(payload) {
-  const res = await fetch(`${BASE}/clearance-requests`, {
+  return oceansxFetch("/clearance-requests", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(body.error || "PANS submit failed");
-    err.status = res.status;
-    err.upstream = body.upstream || body;
-    throw err;
-  }
-  return body;
 }
 
 /**
@@ -45,17 +57,8 @@ export async function submitPortClearance(payload) {
  * @param {object} payload Full GD request body
  */
 export async function submitGeneralDeclaration(payload) {
-  const res = await fetch(`${BASE}/gd-requests`, {
+  return oceansxFetch("/gd-requests", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(body.error || "GD submit failed");
-    err.status = res.status;
-    err.upstream = body.upstream || body;
-    throw err;
-  }
-  return body;
 }
