@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { queryOceansX } from "../oceansxApi";
+import GdSubmitForm from "../gd/GdSubmitForm";
+import PansSubmitForm from "../pans/PansSubmitForm";
+
+const VIEW_TABS = [
+  { id: "query", label: "Query Declarations", path: "/oceans-x" },
+  { id: "pans", label: "Submit Port Clearance (PANS)", path: "/oceans-x/pans" },
+  { id: "gd", label: "Submit General Declaration (GD)", path: "/oceans-x/gd" },
+];
+
+function resolveView(param) {
+  if (param === "pans" || param === "submit") return "pans";
+  if (param === "gd") return "gd";
+  if (!param || param === "query") return "query";
+  return null;
+}
 
 const CATEGORY_META = {
   cert: {
@@ -432,6 +447,10 @@ function countRecords(data) {
 }
 
 export default function OceansXPage() {
+  const { view: viewParam } = useParams();
+  const navigate = useNavigate();
+  const viewMode = resolveView(viewParam);
+
   const [category, setCategory] = useState("arrival");
   const [mode, setMode] = useState("hours");
   const [form, setForm] = useState({
@@ -571,6 +590,10 @@ export default function OceansXPage() {
     setJsonPayload(null);
   }
 
+  if (viewMode == null) {
+    return <Navigate to="/oceans-x" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 antialiased">
       <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
@@ -654,7 +677,31 @@ export default function OceansXPage() {
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Top-level: Query vs Submit */}
+        <div className="flex flex-wrap rounded-lg border border-slate-700 bg-slate-900/80 p-1">
+          {VIEW_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => navigate(tab.path)}
+              className={`rounded-md px-4 py-2 text-sm font-medium ${
+                viewMode === tab.id
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {viewMode === "pans" ? (
+          <PansSubmitForm />
+        ) : viewMode === "gd" ? (
+          <GdSubmitForm />
+        ) : (
+          <>
+        {/* Category tabs */}
         <div className="flex flex-wrap gap-x-8 gap-y-2 border-b border-slate-800 text-sm font-medium">
           {[
             { id: "cert", label: "Port Clearance Certificates" },
@@ -859,6 +906,8 @@ export default function OceansXPage() {
             />
           </div>
         </div>
+          </>
+        )}
 
         {jsonOpen ? (
           <div

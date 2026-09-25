@@ -4,6 +4,11 @@
  */
 
 const BASE_URL = "https://oceans-x.mpa.gov.sg/api/v1";
+const PANS_PATH = "/port-clearance-data/1.0.0/clearance-requests";
+/** GD lives under /api (not /api/v1) per Oceans-X docs. */
+const GD_URL =
+  "https://oceans-x.mpa.gov.sg/api/port-clearance-submission/1.0.0/gd-requests";
+const GD_PATH = "/port-clearance-submission/1.0.0/gd-requests";
 
 function getApiKey() {
   const key = process.env.OCEANS_X_API_KEY;
@@ -14,6 +19,24 @@ function getApiKey() {
     throw err;
   }
   return key;
+}
+
+function authHeaders() {
+  const apiKey = getApiKey();
+  const headers = {
+    Accept: "application/json",
+    apikey: apiKey,
+    Authorization: `Bearer ${apiKey}`,
+  };
+  const authenticatorName = process.env.OCEANS_X_AUTHENTICATOR_NAME;
+  if (authenticatorName) {
+    headers.authenticator_name = authenticatorName;
+  }
+  const authenticatorValue = process.env.OCEANS_X_AUTHENTICATOR_VALUE;
+  if (authenticatorValue) {
+    headers.authenticator_value = authenticatorValue;
+  }
+  return headers;
 }
 
 /**
@@ -92,19 +115,7 @@ function buildUpstream({ category, mode, params = {} }) {
   throw err;
 }
 
-async function queryOceansX(payload) {
-  const apiKey = getApiKey();
-  const pathAndQuery = buildUpstream(payload);
-  const url = `${BASE_URL}${pathAndQuery}`;
-
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      apikey: apiKey,
-    },
-  });
-
+async function parseResponse(res) {
   const text = await res.text();
   let body;
   try {
@@ -112,6 +123,19 @@ async function queryOceansX(payload) {
   } catch {
     body = { raw: text };
   }
+  return body;
+}
+
+async function queryOceansX(payload) {
+  const pathAndQuery = buildUpstream(payload);
+  const url = `${BASE_URL}${pathAndQuery}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: authHeaders(),
+  });
+
+  const body = await parseResponse(res);
 
   if (!res.ok) {
     const err = new Error(
@@ -129,4 +153,104 @@ async function queryOceansX(payload) {
   };
 }
 
-module.exports = { queryOceansX, buildUpstream, BASE_URL };
+/**
+ * Submit Port Clearance (PANS) — POST clearance-requests.
+ * Body is forwarded as-is; secrets stay server-side only.
+ */
+async function submitPortClearance(payload) {
+  if (!payload || typeof payload !== "object") {
+    const err = new Error("Request body is required");
+    err.status = 400;
+    throw err;
+  }
+  if (payload.submitPANS !== "Y") {
+    const err = new Error('submitPANS must be "Y" (only value supported in v1.0.0)');
+    err.status = 400;
+    throw err;
+  }
+
+  const url = `${BASE_URL}${PANS_PATH}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await parseResponse(res);
+
+  if (!res.ok) {
+    const err = new Error(
+      (body && (body.message || body.error || body.description)) ||
+        `PANS submit failed (${res.status})`
+    );
+    err.status = res.status;
+    err.upstream = body;
+    throw err;
+  }
+
+  return {
+    upstreamPath: PANS_PATH,
+    status: res.status,
+    data: body,
+  };
+}
+
+/**
+ * Submit General Declaration (GD) — POST gd-requests.
+ * Body is forwarded as-is; secrets stay server-side only.
+ */
+async function submitGeneralDeclaration(payload) {
+  if (!payload || typeof payload !== "object") {
+    const err = new Error("Request body is required");
+    err.status = 400;
+    throw err;
+  }
+  if (!payload.arrDepCode || !["A", "D", "C"].includes(payload.arrDepCode)) {
+    const err = new Error("arrDepCode must be one of A, D, C");
+    err.status = 400;
+    throw err;
+  }
+
+  const res = await fetch(GD_URL, {
+    method: "POST",
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await parseResponse(res);
+  const location = res.headers.get("location") || res.headers.get("Location");
+
+  if (!res.ok) {
+    const err = new Error(
+      (body && (body.message || body.error || body.description)) ||
+        `GD submit failed (${res.status})`
+    );
+    err.status = res.status;
+    err.upstream = body;
+    throw err;
+  }
+
+  return {
+    upstreamPath: GD_PATH,
+    status: res.status,
+    location: location || undefined,
+    data: body,
+  };
+}
+
+module.exports = {
+  queryOceansX,
+  submitPortClearance,
+  submitGeneralDeclaration,
+  buildUpstream,
+  BASE_URL,
+  PANS_PATH,
+  GD_PATH,
+  GD_URL,
+};
