@@ -1,6 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { queryOceansX, buildUpstream } = require("../services/oceansx");
+const {
+  queryOceansX,
+  submitPortClearance,
+  submitGeneralDeclaration,
+  buildUpstream,
+} = require("../services/oceansx");
 
 /**
  * POST /api/oceansx/query
@@ -14,7 +19,6 @@ router.post("/query", async (req, res) => {
       return res.status(400).json({ error: "category and mode are required" });
     }
 
-    // Validate path preview without calling upstream when possible
     try {
       buildUpstream({ category, mode, params: params || {} });
     } catch (err) {
@@ -41,6 +45,55 @@ router.post("/query", async (req, res) => {
     const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 502;
     res.status(status).json({
       error: err.message || "Oceans-X request failed",
+      upstream: err.upstream || undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/oceansx/clearance-requests
+ * Body: full PANS Submit Port Clearance JSON
+ */
+router.post("/clearance-requests", async (req, res) => {
+  try {
+    const result = await submitPortClearance(req.body || {});
+    res.status(result.status || 201).json({
+      status: "ok",
+      upstreamPath: result.upstreamPath,
+      data: result.data,
+    });
+  } catch (err) {
+    if (err.code === "MISSING_OCEANS_X_API_KEY") {
+      return res.status(503).json({ error: "Oceans-X API is unavailable" });
+    }
+    const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 502;
+    res.status(status).json({
+      error: err.message || "PANS submit failed",
+      upstream: err.upstream || undefined,
+    });
+  }
+});
+
+/**
+ * POST /api/oceansx/gd-requests
+ * Body: full General Declaration (GD) JSON
+ */
+router.post("/gd-requests", async (req, res) => {
+  try {
+    const result = await submitGeneralDeclaration(req.body || {});
+    res.status(result.status || 201).json({
+      status: "ok",
+      upstreamPath: result.upstreamPath,
+      location: result.location,
+      data: result.data,
+    });
+  } catch (err) {
+    if (err.code === "MISSING_OCEANS_X_API_KEY") {
+      return res.status(503).json({ error: "Oceans-X API is unavailable" });
+    }
+    const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 502;
+    res.status(status).json({
+      error: err.message || "GD submit failed",
       upstream: err.upstream || undefined,
     });
   }

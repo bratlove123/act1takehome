@@ -14,7 +14,8 @@ description: >-
 - Never `console.log` keys or include them in errors/responses.
 - Missing `EXTERNAL_API_KEY` → `MISSING_EXTERNAL_API_KEY` / HTTP 503.
 - Missing `OCEANS_X_API_KEY` → `MISSING_OCEANS_X_API_KEY` / HTTP 503.
-- Oceans-X auth header: `apikey: <OCEANS_X_API_KEY>` (not Authorization Bearer).
+- Oceans-X query auth: `apikey: <OCEANS_X_API_KEY>` (+ `Authorization: Bearer` for PANS).
+- Optional PANS headers: `OCEANS_X_AUTHENTICATOR_NAME` / `OCEANS_X_AUTHENTICATOR_VALUE` → `authenticator_name` / `authenticator_value`.
 
 ## Env surfaces
 

@@ -8,6 +8,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<CatalogPage />} />
         <Route path="/oceans-x" element={<OceansXPage />} />
+        <Route path="/oceans-x/:view" element={<OceansXPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
